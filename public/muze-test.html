@@ -47,6 +47,9 @@
   <h3>Debug Output:</h3>
   <div id="debug"></div>
 
+  <!-- Load D3.js first (Muze dependency) -->
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  
   <!-- Load Muze from local file -->
   <script src="/lib/muze.js"></script>
   
@@ -67,78 +70,83 @@
       console.log(message, data);
     }
     
-    // Test function to create a Muze chart
-    function testMuzeChart() {
-      try {
-        debugLog('Starting Muze test', {});
-        
-        // Check if muze is available
-        if (typeof muze === 'undefined') {
-          throw new Error('Muze library not loaded');
+    // Wait for everything to load
+    window.onload = function() {
+      debugLog('Window loaded', {});
+      
+      // Test function to create a Muze chart
+      function testMuzeChart() {
+        try {
+          debugLog('Starting Muze test', {});
+          
+          // Check if muze is available
+          if (typeof muze === 'undefined') {
+            throw new Error('Muze library not loaded');
+          }
+          
+          debugLog('Muze library found', { type: typeof muze });
+          
+          // Initialize Muze
+          const muzeInstance = muze();
+          debugLog('Muze initialized', { version: muzeInstance.version });
+          
+          // Sample data
+          const data = [
+            { Category: "A", Value: 30 },
+            { Category: "B", Value: 70 },
+            { Category: "C", Value: 50 }
+          ];
+          debugLog('Sample data created', data);
+          
+          // Define schema
+          const schema = [
+            { name: "Category", type: "dimension" },
+            { name: "Value", type: "measure", defAggFn: "sum" }
+          ];
+          debugLog('Schema defined', schema);
+          
+          // Create DataModel
+          const DataModel = muzeInstance.DataModel;
+          if (!DataModel) {
+            throw new Error('DataModel not found in Muze instance');
+          }
+          debugLog('DataModel class found', { type: typeof DataModel });
+          
+          const dm = new DataModel(data, schema);
+          debugLog('DataModel instance created', { isValid: !!dm });
+          
+          // Create and configure chart
+          const canvas = muzeInstance.canvas();
+          debugLog('Canvas created', { type: typeof canvas });
+          
+          muzeInstance
+            .canvas()
+            .rows(["Category"])
+            .columns(["Value"])
+            .layers([
+              {
+                mark: "bar"
+              }
+            ])
+            .data(dm)
+            .mount("#chart");
+          
+          debugLog('Chart mounted', { target: '#chart' });
+          
+        } catch (error) {
+          debugLog('Error in Muze test', { 
+            message: error.message,
+            stack: error.stack
+          });
         }
-        
-        debugLog('Muze library found', { type: typeof muze });
-        
-        // Initialize Muze
-        const muzeInstance = muze();
-        debugLog('Muze initialized', { version: muzeInstance.version });
-        
-        // Sample data
-        const data = [
-          { Category: "A", Value: 30 },
-          { Category: "B", Value: 70 },
-          { Category: "C", Value: 50 }
-        ];
-        debugLog('Sample data created', data);
-        
-        // Define schema
-        const schema = [
-          { name: "Category", type: "dimension" },
-          { name: "Value", type: "measure", defAggFn: "sum" }
-        ];
-        debugLog('Schema defined', schema);
-        
-        // Create DataModel
-        const DataModel = muzeInstance.DataModel;
-        if (!DataModel) {
-          throw new Error('DataModel not found in Muze instance');
-        }
-        debugLog('DataModel class found', { type: typeof DataModel });
-        
-        const dm = new DataModel(data, schema);
-        debugLog('DataModel instance created', { isValid: !!dm });
-        
-        // Create and configure chart
-        const canvas = muzeInstance.canvas();
-        debugLog('Canvas created', { type: typeof canvas });
-        
-        muzeInstance
-          .canvas()
-          .rows(["Category"])
-          .columns(["Value"])
-          .layers([
-            {
-              mark: "bar"
-            }
-          ])
-          .data(dm)
-          .mount("#chart");
-        
-        debugLog('Chart mounted', { target: '#chart' });
-        
-      } catch (error) {
-        debugLog('Error in Muze test', { 
-          message: error.message,
-          stack: error.stack
-        });
       }
-    }
-    
-    // Add click event to test button
-    document.getElementById('test-button').addEventListener('click', testMuzeChart);
-    
-    // Also run the test automatically after a short delay
-    setTimeout(testMuzeChart, 1000);
+      
+      // Run the test
+      testMuzeChart();
+      
+      // Also add click event to test button
+      document.getElementById('test-button').addEventListener('click', testMuzeChart);
+    };
   </script>
 </body>
 </html> 
