@@ -14,6 +14,10 @@ export function transformCode(code: string): string {
   // Handle mount('#chart-container') pattern
   transformedCode = transformedCode.replace(/\.mount\s*\(\s*['"]#[\w-]+['"]\s*\)/g, '.mount("#chart")');
   
+  // Handle ThoughtSpot specific patterns
+  transformedCode = transformedCode.replace(/thoughtspot\.getDataFromSearchQuery/g, 'window.viz.getDataFromSearchQuery');
+  transformedCode = transformedCode.replace(/thoughtspot\.muze/g, 'window.viz.muze');
+  
   // Add semicolons to the end of lines if missing
   transformedCode = transformedCode.split('\n')
     .map(line => {
