@@ -49,11 +49,18 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               }
               #chart {
                 width: 100%;
-                flex: 1;
+                height: 300px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 border-bottom: 1px solid #ccc;
+              }
+              #fallback-chart {
+                width: 100%;
+                height: 200px;
+                margin-top: 20px;
+                border-top: 1px solid #ccc;
+                padding-top: 10px;
               }
               #debug {
                 padding: 10px;
@@ -67,12 +74,24 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 color: red;
                 padding: 20px;
               }
+              .section-title {
+                font-size: 14px;
+                font-weight: bold;
+                margin: 10px 0;
+                color: #333;
+                text-align: center;
+              }
             </style>
             <!-- Load Muze from CDN -->
             <script src="https://cdn.jsdelivr.net/npm/@viz/muze@latest/dist/muze.js"></script>
           </head>
           <body>
+            <div class="section-title">User Chart</div>
             <div id="chart"></div>
+            
+            <div class="section-title">Fallback Chart (Always Renders)</div>
+            <div id="fallback-chart"></div>
+            
             <div id="debug"></div>
             <script>
               // Simple debug function that writes to the debug div
@@ -100,6 +119,37 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               try {
                 muzeInstance = muze();
                 debugLog('Muze initialized', { version: muzeInstance.version });
+                
+                // Create a fallback chart that always renders
+                try {
+                  debugLog('Creating fallback chart', {});
+                  
+                  // Sample data for the fallback chart
+                  const fallbackData = [
+                    { "Category": "Furniture", "Sales": 1200 },
+                    { "Category": "Office Supplies", "Sales": 900 },
+                    { "Category": "Technology", "Sales": 1500 },
+                    { "Category": "Clothing", "Sales": 800 },
+                    { "Category": "Books", "Sales": 600 }
+                  ];
+                  
+                  // Create the canvas for the fallback chart
+                  const fallbackCanvas = muzeInstance.canvas();
+                  
+                  // Configure and render the fallback chart
+                  fallbackCanvas
+                    .data(fallbackData)
+                    .rows(["Sales"])
+                    .columns(["Category"])
+                    .mount("#fallback-chart");
+                  
+                  debugLog('Fallback chart rendered', { target: '#fallback-chart' });
+                } catch (fallbackError) {
+                  debugLog('Error rendering fallback chart', { 
+                    message: fallbackError.message,
+                    stack: fallbackError.stack
+                  });
+                }
               } catch (e) {
                 debugLog('Error initializing Muze', e.message);
               }
@@ -123,15 +173,15 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               // Make debugLog available globally
               window.debugLog = debugLog;
               
-              // Execute the code
+              // Execute the user's code
               try {
-                debugLog('Starting code execution', {});
+                debugLog('Starting user code execution', {});
                 
                 ${transformedCode}
                 
-                debugLog('Code execution completed', {});
+                debugLog('User code execution completed', {});
               } catch (error) {
-                debugLog('Error executing code', { 
+                debugLog('Error executing user code', { 
                   message: error.message,
                   stack: error.stack
                 });

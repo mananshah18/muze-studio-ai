@@ -3,29 +3,27 @@ import { Editor, Preview, Header } from './components';
 import Split from 'split.js';
 
 function App() {
-  const [code, setCode] = useState<string>(`// Basic Muze chart example
-debugLog('Starting chart creation', {});
+  const [code, setCode] = useState<string>(`// Get the Muze library
+const env = viz.muze;
 
-// Get the Muze library
-const { muze } = viz;
-debugLog('Muze library accessed', { muze: typeof muze });
+// Sample data
+const data = [
+  { "Category": "Furniture", "Sales": 1200 },
+  { "Category": "Office Supplies", "Sales": 900 },
+  { "Category": "Technology", "Sales": 1500 },
+  { "Category": "Clothing", "Sales": 800 },
+  { "Category": "Books", "Sales": 600 }
+];
 
-// Create a simple bar chart
-const canvas = muze.canvas();
-debugLog('Canvas created', { canvas: typeof canvas });
+// Create the canvas
+const canvas = env.canvas();
 
-// Get data from the ThoughtSpot query
-const data = viz.getDataFromSearchQuery();
-debugLog('Data received', data);
-
-// Configure and render the chart
+// Configure the chart
 canvas
   .data(data)
-  .rows(['Total Sales'])
-  .columns(['Category'])
-  .mount('#chart');
-
-debugLog('Chart mounted', { target: '#chart' });
+  .rows(["Sales"])
+  .columns(["Category"])
+  .mount("#chart");
 `);
 
   useEffect(() => {
