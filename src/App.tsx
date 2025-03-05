@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Editor, Preview, Header } from './components';
 import Split from 'split.js';
 import { generateChartCode } from './utils/openaiService';
