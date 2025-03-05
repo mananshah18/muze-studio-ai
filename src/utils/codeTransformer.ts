@@ -1,27 +1,40 @@
 /**
- * Transforms user code to be executable in the preview iframe
- * Removes import statements and handles exports
- * @param code The user's code
+ * Transforms user code to be safely executed in the preview iframe
+ * @param code The user-provided code
  * @returns Transformed code ready for execution
  */
 export function transformCode(code: string): string {
-  // Remove import statements
-  let transformedCode = code.replace(/import\s+.*?from\s+['"].*?['"];?/g, '');
+  // Replace require statements with window.Muze
+  let transformedCode = code.replace(/const\s+(?:env|muze)\s*=\s*require\s*\(\s*['"]@viz\/muze['"]\s*\)/g, 'const env = window.Muze');
+  transformedCode = transformedCode.replace(/const\s+Muze\s*=\s*env\.Muze/g, 'const Muze = env');
   
-  // Handle default exports
-  transformedCode = transformedCode.replace(/export\s+default\s+function\s+(\w+)/g, 'function $1');
+  // Replace viz references if needed
+  transformedCode = transformedCode.replace(/const\s+{\s*muze\s*,\s*getDataFromSearchQuery\s*}\s*=\s*viz\s*;/g, 'const { muze, getDataFromSearchQuery } = window.viz;');
   
-  // Handle named exports
-  transformedCode = transformedCode.replace(/export\s+function\s+(\w+)/g, 'function $1');
+  // Handle mount('#chart-container') pattern
+  transformedCode = transformedCode.replace(/\.mount\s*\(\s*['"]#[\w-]+['"]\s*\)/g, '.mount("#chart")');
   
-  // Handle class exports
-  transformedCode = transformedCode.replace(/export\s+default\s+class\s+(\w+)/g, 'class $1');
-  transformedCode = transformedCode.replace(/export\s+class\s+(\w+)/g, 'class $1');
-  
-  // Handle variable exports
-  transformedCode = transformedCode.replace(/export\s+const\s+/g, 'const ');
-  transformedCode = transformedCode.replace(/export\s+let\s+/g, 'let ');
-  transformedCode = transformedCode.replace(/export\s+var\s+/g, 'var ');
+  // Add semicolons to the end of lines if missing
+  transformedCode = transformedCode.split('\n')
+    .map(line => {
+      const trimmedLine = line.trim();
+      if (
+        trimmedLine.length > 0 &&
+        !trimmedLine.endsWith(';') &&
+        !trimmedLine.endsWith('{') &&
+        !trimmedLine.endsWith('}') &&
+        !trimmedLine.endsWith(',') &&
+        !trimmedLine.startsWith('//') &&
+        !trimmedLine.startsWith('/*') &&
+        !trimmedLine.startsWith('*') &&
+        !trimmedLine.startsWith('import ') &&
+        !trimmedLine.startsWith('export ')
+      ) {
+        return line + ';';
+      }
+      return line;
+    })
+    .join('\n');
   
   return transformedCode;
 } 

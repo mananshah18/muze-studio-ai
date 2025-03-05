@@ -33,7 +33,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 font-family: Arial, sans-serif;
                 background-color: #f5f5f5;
               }
-              #chart-container {
+              #chart {
                 width: 100%;
                 height: 100vh;
                 display: flex;
@@ -49,6 +49,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
             <script>
               // Create a placeholder for Muze until the library loads
               window.Muze = null;
+              window.viz = null;
             </script>
             <script src="https://cdn.jsdelivr.net/npm/@viz/muze@latest/dist/muze.js"></script>
             <script>
@@ -56,16 +57,28 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               document.addEventListener('DOMContentLoaded', function() {
                 if (typeof muze !== 'undefined') {
                   window.Muze = muze();
+                  window.viz = window.Muze;
                 }
               });
+
+              // Mock function for getDataFromSearchQuery if needed
+              function getDataFromSearchQuery() {
+                return [
+                  { "Category": "Furniture", "Total Sales": 1200 },
+                  { "Category": "Office Supplies", "Total Sales": 900 },
+                  { "Category": "Technology", "Total Sales": 1500 },
+                  { "Category": "Clothing", "Total Sales": 800 },
+                  { "Category": "Books", "Total Sales": 600 }
+                ];
+              }
             </script>
           </head>
           <body>
-            <div id="chart-container"></div>
+            <div id="chart"></div>
             <script>
               // Wait for Muze to be available
               function waitForMuze(callback) {
-                if (window.Muze) {
+                if (window.Muze && window.viz) {
                   callback();
                 } else {
                   setTimeout(function() { waitForMuze(callback); }, 100);
@@ -74,19 +87,19 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               
               waitForMuze(function() {
                 try {
-                  ${transformedCode}
-                  
-                  // Execute the chart creation function
-                  if (typeof createChart === 'function') {
-                    createChart(document.getElementById('chart-container'));
-                  } else {
-                    document.getElementById('chart-container').innerHTML = 
-                      '<div class="error-container">' + 
-                      '<h3>Error:</h3>' + 
-                      '<p>No createChart function found. Make sure your code includes a createChart(container) function.</p></div>';
+                  // If the code contains a createChart function, use it
+                  if (${transformedCode.includes('function createChart')}) {
+                    ${transformedCode}
+                    if (typeof createChart === 'function') {
+                      createChart(document.getElementById('chart'));
+                    }
+                  } 
+                  // Otherwise, execute the code directly
+                  else {
+                    ${transformedCode}
                   }
                 } catch (error) {
-                  document.getElementById('chart-container').innerHTML = 
+                  document.getElementById('chart').innerHTML = 
                     '<div class="error-container">' + 
                     '<h3>Error rendering chart:</h3>' + 
                     '<pre>' + error.message + '</pre></div>';
