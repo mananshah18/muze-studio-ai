@@ -20,7 +20,7 @@ A custom chart creator for ThoughtSpot using Muze. This application allows you t
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/muze-studio-ai.git
+git clone https://github.com/mananshah18/muze-studio-ai.git
 cd muze-studio-ai
 ```
 
@@ -87,4 +87,4 @@ vercel --prod
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
