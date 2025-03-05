@@ -3,10 +3,10 @@ import { Editor, Preview, Header } from './components';
 import Split from 'split.js';
 
 function App() {
-  const [code, setCode] = useState<string>(`// Get the Muze library and data function from viz
+  const [code, setCode] = useState<string>(`// Get the Muze library and data function from ThoughtSpot
 const { muze, getDataFromSearchQuery } = viz;
 
-// Get sample data
+// Get data from ThoughtSpot search query
 const data = getDataFromSearchQuery();
 
 // Create and configure the chart
@@ -15,6 +15,18 @@ muze.canvas()
   .columns(["Category"])
   .data(data)
   .mount("#chart");
+
+// You can also use more advanced configurations:
+/*
+muze.canvas()
+  .rows(["Total Sales"])
+  .columns(["Category"])
+  .color("Region")
+  .data(data)
+  .title("Sales by Category and Region")
+  .subtitle("Data from ThoughtSpot")
+  .mount("#chart");
+*/
 `);
 
   useEffect(() => {
