@@ -126,21 +126,30 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                   
                   // Sample data for the fallback chart
                   const fallbackData = [
-                    { "Category": "Furniture", "Sales": 1200 },
-                    { "Category": "Office Supplies", "Sales": 900 },
-                    { "Category": "Technology", "Sales": 1500 },
-                    { "Category": "Clothing", "Sales": 800 },
-                    { "Category": "Books", "Sales": 600 }
+                    { Category: "A", Value: 30 },
+                    { Category: "B", Value: 70 },
+                    { Category: "C", Value: 50 }
                   ];
                   
-                  // Create the canvas for the fallback chart
-                  const fallbackCanvas = muzeInstance.canvas();
+                  // Define schema
+                  const schema = [
+                    { name: "Category", type: "dimension" },
+                    { name: "Value", type: "measure", defAggFn: "sum" }
+                  ];
                   
-                  // Configure and render the fallback chart
-                  fallbackCanvas
-                    .data(fallbackData)
-                    .rows(["Sales"])
-                    .columns(["Category"])
+                  const DataModel = muzeInstance.DataModel;
+                  const dm = new DataModel(fallbackData, schema);
+                  
+                  muzeInstance
+                    .canvas()
+                    .rows(["Category"])
+                    .columns(["Value"])
+                    .layers([
+                      {
+                        mark: "bar"
+                      }
+                    ])
+                    .data(dm)
                     .mount("#fallback-chart");
                   
                   debugLog('Fallback chart rendered', { target: '#fallback-chart' });

@@ -4,25 +4,34 @@ import Split from 'split.js';
 
 function App() {
   const [code, setCode] = useState<string>(`// Get the Muze library
-const env = viz.muze;
+const { muze } = viz;
 
 // Sample data
 const data = [
-  { "Category": "Furniture", "Sales": 1200 },
-  { "Category": "Office Supplies", "Sales": 900 },
-  { "Category": "Technology", "Sales": 1500 },
-  { "Category": "Clothing", "Sales": 800 },
-  { "Category": "Books", "Sales": 600 }
+  { Category: "A", Value: 30 },
+  { Category: "B", Value: 70 },
+  { Category: "C", Value: 50 }
 ];
 
-// Create the canvas
-const canvas = env.canvas();
+// Define schema
+const schema = [
+  { name: "Category", type: "dimension" },
+  { name: "Value", type: "measure", defAggFn: "sum" }
+];
 
-// Configure the chart
-canvas
-  .data(data)
-  .rows(["Sales"])
-  .columns(["Category"])
+const DataModel = muze.DataModel;
+const dm = new DataModel(data, schema);
+
+muze
+  .canvas()
+  .rows(["Category"])
+  .columns(["Value"])
+  .layers([
+    {
+      mark: "bar"
+    }
+  ])
+  .data(dm)
   .mount("#chart");
 `);
 
