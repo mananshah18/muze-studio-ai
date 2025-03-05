@@ -93,6 +93,9 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 border-radius: 3px;
               }
             </style>
+            <!-- Load D3.js first (Muze dependency) -->
+            <script src="https://d3js.org/d3.v5.min.js"></script>
+            
             <!-- Load Muze from local file -->
             <script src="/lib/muze.js"></script>
           </head>
@@ -125,117 +128,113 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 console.log(message, data);
               }
               
-              // Check if Muze is available
-              if (typeof muze === 'undefined') {
-                debugLog('ERROR: Muze library not loaded', {});
-                document.body.innerHTML = '<div class="error-container"><h2>Error: Muze library not loaded</h2><p>The Muze visualization library could not be loaded. Please check your internet connection and try again.</p></div>' + document.body.innerHTML;
-              } else {
-                debugLog('Muze library loaded', { type: typeof muze });
+              // Wait for everything to load
+              window.onload = function() {
+                debugLog('Window loaded', {});
                 
-                // Add version info to the page
-                try {
-                  const muzeInstance = muze();
-                  const versionInfo = muzeInstance.version || 'Unknown';
-                  debugLog('Muze version', versionInfo);
+                // Check if Muze is available
+                if (typeof muze === 'undefined') {
+                  debugLog('ERROR: Muze library not loaded', {});
+                  document.body.innerHTML = '<div class="error-container"><h2>Error: Muze library not loaded</h2><p>The Muze visualization library could not be loaded. Please check your internet connection and try again.</p></div>' + document.body.innerHTML;
+                } else {
+                  debugLog('Muze library loaded', { type: typeof muze });
                   
-                  const versionEl = document.createElement('div');
-                  versionEl.className = 'muze-version';
-                  versionEl.textContent = 'Muze v' + versionInfo;
-                  document.body.appendChild(versionEl);
-                  
-                  // Send version back to parent
-                  window.parent.postMessage({ type: 'muze-version', version: versionInfo }, '*');
-                } catch (e) {
-                  debugLog('Error getting Muze version', e.message);
-                }
-              }
-              
-              // Initialize Muze
-              let muzeInstance;
-              try {
-                muzeInstance = muze();
-                debugLog('Muze initialized', { version: muzeInstance.version });
-                
-                // Create a fallback chart that always renders
-                try {
-                  debugLog('Creating fallback chart', {});
-                  
-                  // Sample data for the fallback chart
-                  const fallbackData = [
-                    { Category: "A", Value: 30 },
-                    { Category: "B", Value: 70 },
-                    { Category: "C", Value: 50 }
-                  ];
-                  
-                  // Define schema
-                  const schema = [
-                    { name: "Category", type: "dimension" },
-                    { name: "Value", type: "measure", defAggFn: "sum" }
-                  ];
-                  
-                  const DataModel = muzeInstance.DataModel;
-                  const dm = new DataModel(fallbackData, schema);
-                  
-                  muzeInstance
-                    .canvas()
-                    .rows(["Category"])
-                    .columns(["Value"])
-                    .layers([
-                      {
-                        mark: "bar"
+                  // Add version info to the page
+                  try {
+                    const muzeInstance = muze();
+                    const versionInfo = muzeInstance.version || 'Unknown';
+                    debugLog('Muze version', versionInfo);
+                    
+                    const versionEl = document.createElement('div');
+                    versionEl.className = 'muze-version';
+                    versionEl.textContent = 'Muze v' + versionInfo;
+                    document.body.appendChild(versionEl);
+                    
+                    // Send version back to parent
+                    window.parent.postMessage({ type: 'muze-version', version: versionInfo }, '*');
+                    
+                    // Initialize Muze
+                    try {
+                      debugLog('Creating fallback chart', {});
+                      
+                      // Sample data for the fallback chart
+                      const fallbackData = [
+                        { Category: "A", Value: 30 },
+                        { Category: "B", Value: 70 },
+                        { Category: "C", Value: 50 }
+                      ];
+                      
+                      // Define schema
+                      const schema = [
+                        { name: "Category", type: "dimension" },
+                        { name: "Value", type: "measure", defAggFn: "sum" }
+                      ];
+                      
+                      const DataModel = muzeInstance.DataModel;
+                      const dm = new DataModel(fallbackData, schema);
+                      
+                      muzeInstance
+                        .canvas()
+                        .rows(["Category"])
+                        .columns(["Value"])
+                        .layers([
+                          {
+                            mark: "bar"
+                          }
+                        ])
+                        .data(dm)
+                        .mount("#fallback-chart");
+                      
+                      debugLog('Fallback chart rendered', { target: '#fallback-chart' });
+                      
+                      // Create the viz object with Muze and data functions
+                      window.viz = {
+                        muze: muzeInstance,
+                        getDataFromSearchQuery: function() {
+                          const data = [
+                            { "Category": "Furniture", "Total Sales": 1200 },
+                            { "Category": "Office Supplies", "Total Sales": 900 },
+                            { "Category": "Technology", "Total Sales": 1500 },
+                            { "Category": "Clothing", "Total Sales": 800 },
+                            { "Category": "Books", "Total Sales": 600 }
+                          ];
+                          debugLog('getDataFromSearchQuery called', data);
+                          return data;
+                        }
+                      };
+                      
+                      // Make debugLog available globally
+                      window.debugLog = debugLog;
+                      
+                      // Execute the user's code
+                      try {
+                        debugLog('Starting user code execution', {});
+                        
+                        ${transformedCode}
+                        
+                        debugLog('User code execution completed', {});
+                      } catch (error) {
+                        debugLog('Error executing user code', { 
+                          message: error.message,
+                          stack: error.stack
+                        });
+                        
+                        document.getElementById('chart').innerHTML = 
+                          '<div class="error-container">' + 
+                          '<h3>Error rendering chart:</h3>' + 
+                          '<pre>' + error.message + '</pre></div>';
                       }
-                    ])
-                    .data(dm)
-                    .mount("#fallback-chart");
-                  
-                  debugLog('Fallback chart rendered', { target: '#fallback-chart' });
-                } catch (fallbackError) {
-                  debugLog('Error rendering fallback chart', { 
-                    message: fallbackError.message,
-                    stack: fallbackError.stack
-                  });
-                }
-              } catch (e) {
-                debugLog('Error initializing Muze', e.message);
-              }
-              
-              // Create the viz object with Muze and data functions
-              window.viz = {
-                muze: muzeInstance,
-                getDataFromSearchQuery: function() {
-                  const data = [
-                    { "Category": "Furniture", "Total Sales": 1200 },
-                    { "Category": "Office Supplies", "Total Sales": 900 },
-                    { "Category": "Technology", "Total Sales": 1500 },
-                    { "Category": "Clothing", "Total Sales": 800 },
-                    { "Category": "Books", "Total Sales": 600 }
-                  ];
-                  debugLog('getDataFromSearchQuery called', data);
-                  return data;
+                    } catch (fallbackError) {
+                      debugLog('Error rendering fallback chart', { 
+                        message: fallbackError.message,
+                        stack: fallbackError.stack
+                      });
+                    }
+                  } catch (e) {
+                    debugLog('Error initializing Muze', e.message);
+                  }
                 }
               };
-              
-              // Make debugLog available globally
-              window.debugLog = debugLog;
-              
-              // Execute the user's code
-              try {
-                debugLog('Starting user code execution', {});
-                
-                ${transformedCode}
-                
-                debugLog('User code execution completed', {});
-              } catch (error) {
-                debugLog('Error executing user code', { 
-                  message: error.message,
-                  stack: error.stack
-                });
-                
-                document.getElementById('chart').innerHTML = 
-                  '<div class="error-container">' + 
-                  '<h3>Error rendering chart:</h3>' + 
-                  '<pre>' + error.message + '</pre></div>';
-              }
             </script>
           </body>
         </html>
