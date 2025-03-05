@@ -13,11 +13,6 @@ const data = getDataFromSearchQuery();
 muze.canvas()
   .rows(["Category"])
   .columns(["Total Sales"])
-  .layers([
-    {
-      mark: "bar"
-    }
-  ])
   .data(data)
   .mount("#chart");
 `);
