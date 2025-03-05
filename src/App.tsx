@@ -3,35 +3,22 @@ import { Editor, Preview, Header } from './components';
 import Split from 'split.js';
 
 function App() {
-  const [code, setCode] = useState<string>(`// Get the Muze library
-const { muze } = viz;
+  const [code, setCode] = useState<string>(`// Get the Muze library and data function
+const { muze, getDataFromSearchQuery } = viz;
 
-// Sample data
-const data = [
-  { Category: "A", Value: 30 },
-  { Category: "B", Value: 70 },
-  { Category: "C", Value: 50 }
-];
+// Get data from ThoughtSpot
+const data = getDataFromSearchQuery();
 
-// Define schema
-const schema = [
-  { name: "Category", type: "dimension" },
-  { name: "Value", type: "measure", defAggFn: "sum" }
-];
-
-const DataModel = muze.DataModel;
-const dm = new DataModel(data, schema);
-
-muze
-  .canvas()
+// Create and configure the chart
+muze.canvas()
   .rows(["Category"])
-  .columns(["Value"])
+  .columns(["Total Sales"])
   .layers([
     {
       mark: "bar"
     }
   ])
-  .data(dm)
+  .data(data)
   .mount("#chart");
 `);
 
