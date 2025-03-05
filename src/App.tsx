@@ -4,17 +4,19 @@ import Split from 'split.js';
 
 function App() {
   const [code, setCode] = useState<string>(`// Basic Muze chart example
+debugLog('Starting chart creation', {});
+
 // Get the Muze library
 const { muze } = viz;
+debugLog('Muze library accessed', { muze: typeof muze });
 
 // Create a simple bar chart
 const canvas = muze.canvas();
+debugLog('Canvas created', { canvas: typeof canvas });
 
 // Get data from the ThoughtSpot query
 const data = viz.getDataFromSearchQuery();
-
-// Log the data to see what we're working with
-debugLog('Data received for chart', data);
+debugLog('Data received', data);
 
 // Configure and render the chart
 canvas
@@ -23,7 +25,6 @@ canvas
   .columns(['Category'])
   .mount('#chart');
 
-// Log when the chart is mounted
 debugLog('Chart mounted', { target: '#chart' });
 `);
 
