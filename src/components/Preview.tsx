@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { transformCode } from '../utils/codeTransformer';
 
 interface PreviewProps {
@@ -9,6 +9,11 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-execute code when component mounts
+  useEffect(() => {
+    executeCode();
+  }, []);
 
   const executeCode = () => {
     if (!containerRef.current || !iframeRef.current) return;
@@ -47,60 +52,48 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
             </style>
             <!-- Load Muze from CDN -->
             <script src="https://cdn.jsdelivr.net/npm/@viz/muze@latest/dist/muze.js"></script>
-            <script>
-              // Initialize Muze and ThoughtSpot integration
-              document.addEventListener('DOMContentLoaded', function() {
-                if (typeof muze !== 'undefined') {
-                  window.Muze = muze();
-                  
-                  // Create the viz object that mimics ThoughtSpot's API
-                  window.viz = {
-                    muze: window.Muze,
-                    getDataFromSearchQuery: function() {
-                      // Sample data that mimics ThoughtSpot's data format
-                      return [
-                        { "Category": "Furniture", "Total Sales": 1200 },
-                        { "Category": "Office Supplies", "Total Sales": 900 },
-                        { "Category": "Technology", "Total Sales": 1500 },
-                        { "Category": "Clothing", "Total Sales": 800 },
-                        { "Category": "Books", "Total Sales": 600 }
-                      ];
-                    }
-                  };
-                }
-              });
-            </script>
           </head>
           <body>
             <div id="chart"></div>
             <script>
-              // Wait for Muze to be available
-              function waitForMuze(callback) {
-                if (window.Muze && window.viz) {
-                  callback();
-                } else {
-                  setTimeout(function() { waitForMuze(callback); }, 100);
-                }
-              }
+              // Initialize Muze immediately
+              window.Muze = muze();
               
-              waitForMuze(function() {
+              // Create the viz object that mimics ThoughtSpot's API
+              window.viz = {
+                muze: window.Muze,
+                getDataFromSearchQuery: function() {
+                  // Sample data that mimics ThoughtSpot's data format
+                  return [
+                    { "Category": "Furniture", "Total Sales": 1200 },
+                    { "Category": "Office Supplies", "Total Sales": 900 },
+                    { "Category": "Technology", "Total Sales": 1500 },
+                    { "Category": "Clothing", "Total Sales": 800 },
+                    { "Category": "Books", "Total Sales": 600 }
+                  ];
+                }
+              };
+              
+              // Execute the code with a small delay to ensure everything is initialized
+              setTimeout(function() {
                 try {
-                  // Execute the code directly
+                  console.log("Executing code:", ${JSON.stringify(transformedCode)});
                   ${transformedCode}
+                  console.log("Code execution completed");
                 } catch (error) {
+                  console.error('Chart rendering error:', error);
                   document.getElementById('chart').innerHTML = 
                     '<div class="error-container">' + 
                     '<h3>Error rendering chart:</h3>' + 
                     '<pre>' + error.message + '</pre></div>';
-                  console.error('Chart rendering error:', error);
                 }
-              });
+              }, 300);
             </script>
           </body>
         </html>
       `;
       
-      // Set the srcdoc attribute instead of using document.write
+      // Set the srcdoc attribute
       const iframe = iframeRef.current;
       iframe.srcdoc = htmlContent;
       
