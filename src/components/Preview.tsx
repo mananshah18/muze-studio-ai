@@ -10,33 +10,24 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   // Auto-execute code when component mounts
   useEffect(() => {
     executeCode();
   }, []);
 
-  // Function to receive messages from the iframe
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'debug-info') {
-        setDebugInfo(event.data.content);
-      }
-    };
-    
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
   const executeCode = () => {
     if (!containerRef.current || !iframeRef.current) return;
     setError(null);
-    setDebugInfo(null);
+    setDebugInfo('');
 
     try {
       // Transform the code to be executable in the iframe
       const transformedCode = transformCode(code);
+      
+      // Add our own debug logs to see what's happening
+      console.log("Transformed code:", transformedCode);
       
       // Create the HTML content for the iframe
       const htmlContent = `
@@ -52,60 +43,71 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 padding: 0;
                 font-family: Arial, sans-serif;
                 background-color: #ffffff;
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
               }
               #chart {
                 width: 100%;
-                height: 70vh;
+                flex: 1;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                border-bottom: 1px solid #ccc;
               }
-              .error-container {
-                color: red;
-                padding: 20px;
-              }
-              .debug-container {
+              #debug {
                 padding: 10px;
                 background-color: #f0f0f0;
-                border-top: 1px solid #ccc;
                 font-family: monospace;
                 font-size: 12px;
                 overflow: auto;
                 max-height: 30vh;
               }
+              .error-container {
+                color: red;
+                padding: 20px;
+              }
             </style>
             <!-- Load Muze from CDN -->
             <script src="https://cdn.jsdelivr.net/npm/@viz/muze@latest/dist/muze.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/@thoughtspot/ts-chart-sdk/dist/ts-chart-sdk.umd.js"></script>
           </head>
           <body>
             <div id="chart"></div>
-            <div id="debug" class="debug-container"></div>
+            <div id="debug"></div>
             <script>
-              // Debug function to log information
+              // Simple debug function that writes to the debug div
               function debugLog(message, data) {
-                console.log(message, data);
                 const debugEl = document.getElementById('debug');
                 const logItem = document.createElement('div');
-                logItem.innerHTML = '<strong>' + message + '</strong>: ' + JSON.stringify(data);
+                
+                // Format the message and data
+                let dataStr = '';
+                try {
+                  dataStr = JSON.stringify(data, null, 2);
+                } catch (e) {
+                  dataStr = String(data);
+                }
+                
+                logItem.innerHTML = '<strong>' + message + '</strong>: ' + dataStr;
                 debugEl.appendChild(logItem);
                 
-                // Also send to parent window
-                window.parent.postMessage({
-                  type: 'debug-info',
-                  content: debugEl.innerHTML
-                }, '*');
+                // Also log to console
+                console.log(message, data);
               }
-            
-              // Initialize Muze immediately
-              window.Muze = muze();
-              debugLog('Muze initialized', { version: window.Muze.version });
               
-              // Create a mock implementation of the ThoughtSpot Chart SDK
+              // Initialize Muze
+              let muzeInstance;
+              try {
+                muzeInstance = muze();
+                debugLog('Muze initialized', { version: muzeInstance.version });
+              } catch (e) {
+                debugLog('Error initializing Muze', e.message);
+              }
+              
+              // Create the viz object with Muze and data functions
               window.viz = {
-                muze: window.Muze,
+                muze: muzeInstance,
                 getDataFromSearchQuery: function() {
-                  // Sample data that mimics ThoughtSpot's data format
                   const data = [
                     { "Category": "Furniture", "Total Sales": 1200 },
                     { "Category": "Office Supplies", "Total Sales": 900 },
@@ -117,73 +119,28 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                   return data;
                 }
               };
-              debugLog('viz object created', window.viz);
               
-              // Initialize ThoughtSpot Chart SDK context
-              const initChartContext = async () => {
-                try {
-                  // This is a simplified version - in a real implementation, 
-                  // this would connect to ThoughtSpot's backend
-                  const chartModel = {
-                    columns: [
-                      { name: "Category", type: "DIMENSION" },
-                      { name: "Total Sales", type: "MEASURE" }
-                    ],
-                    data: [{
-                      data: [
-                        {
-                          columnName: "Category",
-                          dataValue: ["Furniture", "Office Supplies", "Technology", "Clothing", "Books"]
-                        },
-                        {
-                          columnName: "Total Sales",
-                          dataValue: [1200, 900, 1500, 800, 600]
-                        }
-                      ]
-                    }]
-                  };
-                  debugLog('chartModel created', chartModel);
-                  
-                  // Execute the user's code
-                  try {
-                    debugLog('Executing code', ${JSON.stringify(transformedCode)});
-                    
-                    // Create a function to execute the code in a controlled environment
-                    const executeUserCode = new Function('debugLog', \`
-                      try {
-                        ${transformedCode}
-                        return { success: true };
-                      } catch (e) {
-                        return { success: false, error: e.message };
-                      }
-                    \`);
-                    
-                    const result = executeUserCode(debugLog);
-                    debugLog('Code execution result', result);
-                    
-                    if (!result.success) {
-                      throw new Error(result.error);
-                    }
-                  } catch (error) {
-                    console.error('Chart rendering error:', error);
-                    debugLog('Chart rendering error', { message: error.message, stack: error.stack });
-                    document.getElementById('chart').innerHTML = 
-                      '<div class="error-container">' + 
-                      '<h3>Error rendering chart:</h3>' + 
-                      '<pre>' + error.message + '</pre></div>';
-                  }
-                } catch (error) {
-                  console.error('Error initializing chart context:', error);
-                  debugLog('Error initializing chart context', { message: error.message, stack: error.stack });
-                  document.getElementById('chart').innerHTML = 
-                    '<div class="error-container">' + 
-                    '<h3>Error initializing chart context:</h3>' + 
-                    '<pre>' + error.message + '</pre></div>';
-                }
-              };
+              // Make debugLog available globally
+              window.debugLog = debugLog;
               
-              // Execute with a small delay to ensure everything is initialized
-              setTimeout(initChartContext, 300);
+              // Execute the code
+              try {
+                debugLog('Starting code execution', {});
+                
+                ${transformedCode}
+                
+                debugLog('Code execution completed', {});
+              } catch (error) {
+                debugLog('Error executing code', { 
+                  message: error.message,
+                  stack: error.stack
+                });
+                
+                document.getElementById('chart').innerHTML = 
+                  '<div class="error-container">' + 
+                  '<h3>Error rendering chart:</h3>' + 
+                  '<pre>' + error.message + '</pre></div>';
+              }
             </script>
           </body>
         </html>
@@ -192,6 +149,26 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
       // Set the srcdoc attribute
       const iframe = iframeRef.current;
       iframe.srcdoc = htmlContent;
+      
+      // Add a load event listener to the iframe to capture console logs
+      iframe.onload = () => {
+        if (iframe.contentWindow) {
+          // Try to access the debug div after the iframe loads
+          setTimeout(() => {
+            try {
+              const debugContent = iframe.contentDocument?.getElementById('debug')?.innerHTML;
+              if (debugContent) {
+                setDebugInfo(debugContent);
+              } else {
+                setDebugInfo('No debug information available');
+              }
+            } catch (error) {
+              console.error('Error accessing iframe content:', error);
+              setDebugInfo('Error accessing debug information: ' + (error instanceof Error ? error.message : String(error)));
+            }
+          }, 1000); // Give it a second to render
+        }
+      };
       
     } catch (error) {
       console.error('Error in preview component:', error);
@@ -222,13 +199,11 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
           title="Chart Preview"
           sandbox="allow-scripts allow-same-origin"
         />
-        {debugInfo && (
-          <div 
-            className="bg-gray-100 border-t border-gray-300 p-2 text-xs font-mono overflow-auto"
-            style={{ maxHeight: '30%' }}
-            dangerouslySetInnerHTML={{ __html: debugInfo }}
-          />
-        )}
+        <div 
+          className="bg-gray-100 border-t border-gray-300 p-2 text-xs font-mono overflow-auto"
+          style={{ maxHeight: '30%', minHeight: '100px' }}
+          dangerouslySetInnerHTML={{ __html: debugInfo }}
+        />
       </div>
     </div>
   );
