@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { transformCode } from '../utils/codeTransformer';
+import { ChartConfig, ChartModel, ColumnType, Query, getChartContext } from '@thoughtspot/ts-chart-sdk';
 
 interface PreviewProps {
   code: string;
@@ -52,6 +53,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
             </style>
             <!-- Load Muze from CDN -->
             <script src="https://cdn.jsdelivr.net/npm/@viz/muze@latest/dist/muze.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@thoughtspot/ts-chart-sdk/dist/ts-chart-sdk.umd.js"></script>
           </head>
           <body>
             <div id="chart"></div>
@@ -59,7 +61,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               // Initialize Muze immediately
               window.Muze = muze();
               
-              // Create the viz object that mimics ThoughtSpot's API
+              // Create a mock implementation of the ThoughtSpot Chart SDK
               window.viz = {
                 muze: window.Muze,
                 getDataFromSearchQuery: function() {
@@ -74,20 +76,53 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 }
               };
               
-              // Execute the code with a small delay to ensure everything is initialized
-              setTimeout(function() {
+              // Initialize ThoughtSpot Chart SDK context
+              const initChartContext = async () => {
                 try {
-                  console.log("Executing code:", ${JSON.stringify(transformedCode)});
-                  ${transformedCode}
-                  console.log("Code execution completed");
+                  // This is a simplified version - in a real implementation, 
+                  // this would connect to ThoughtSpot's backend
+                  const chartModel = {
+                    columns: [
+                      { name: "Category", type: "DIMENSION" },
+                      { name: "Total Sales", type: "MEASURE" }
+                    ],
+                    data: [{
+                      data: [
+                        {
+                          columnName: "Category",
+                          dataValue: ["Furniture", "Office Supplies", "Technology", "Clothing", "Books"]
+                        },
+                        {
+                          columnName: "Total Sales",
+                          dataValue: [1200, 900, 1500, 800, 600]
+                        }
+                      ]
+                    }]
+                  };
+                  
+                  // Execute the user's code
+                  try {
+                    console.log("Executing code:", ${JSON.stringify(transformedCode)});
+                    ${transformedCode}
+                    console.log("Code execution completed");
+                  } catch (error) {
+                    console.error('Chart rendering error:', error);
+                    document.getElementById('chart').innerHTML = 
+                      '<div class="error-container">' + 
+                      '<h3>Error rendering chart:</h3>' + 
+                      '<pre>' + error.message + '</pre></div>';
+                  }
                 } catch (error) {
-                  console.error('Chart rendering error:', error);
+                  console.error('Error initializing chart context:', error);
                   document.getElementById('chart').innerHTML = 
                     '<div class="error-container">' + 
-                    '<h3>Error rendering chart:</h3>' + 
+                    '<h3>Error initializing chart context:</h3>' + 
                     '<pre>' + error.message + '</pre></div>';
                 }
-              }, 300);
+              };
+              
+              // Execute with a small delay to ensure everything is initialized
+              setTimeout(initChartContext, 300);
             </script>
           </body>
         </html>

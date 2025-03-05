@@ -10,6 +10,7 @@ export function transformCode(code: string): string {
   
   // Replace viz references if needed
   transformedCode = transformedCode.replace(/const\s+{\s*muze\s*,\s*getDataFromSearchQuery\s*}\s*=\s*viz\s*;/g, 'const { muze, getDataFromSearchQuery } = window.viz;');
+  transformedCode = transformedCode.replace(/const\s+{\s*muze\s*,\s*getDataFromSearchQuery\s*}\s*=\s*thoughtspot\s*;/g, 'const { muze, getDataFromSearchQuery } = window.viz;');
   
   // Handle mount('#chart-container') pattern - ensure it targets #chart
   transformedCode = transformedCode.replace(/\.mount\s*\(\s*['"]#[\w-]+['"]\s*\)/g, '.mount("#chart")');
@@ -17,6 +18,12 @@ export function transformCode(code: string): string {
   // Handle ThoughtSpot specific patterns
   transformedCode = transformedCode.replace(/thoughtspot\.getDataFromSearchQuery/g, 'window.viz.getDataFromSearchQuery');
   transformedCode = transformedCode.replace(/thoughtspot\.muze/g, 'window.viz.muze');
+  
+  // Handle ThoughtSpot Charts SDK specific imports
+  transformedCode = transformedCode.replace(/import\s+{\s*.*?\s*}\s+from\s+['"]@thoughtspot\/ts-chart-sdk['"]\s*;/g, '// ThoughtSpot SDK imports handled internally');
+  
+  // Handle ChartContext initialization
+  transformedCode = transformedCode.replace(/getChartContext\s*\(/g, '// getChartContext handled internally: ');
   
   // Ensure viz is properly referenced
   if (!transformedCode.includes('window.viz') && !transformedCode.includes('const { muze, getDataFromSearchQuery }')) {
