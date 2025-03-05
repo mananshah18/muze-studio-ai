@@ -11,6 +11,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [muzeVersion, setMuzeVersion] = useState<string>('Unknown');
 
   // Auto-execute code when component mounts
   useEffect(() => {
@@ -81,6 +82,16 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 color: #333;
                 text-align: center;
               }
+              .muze-version {
+                position: absolute;
+                top: 5px;
+                right: 10px;
+                font-size: 12px;
+                color: #666;
+                background: rgba(255,255,255,0.8);
+                padding: 2px 5px;
+                border-radius: 3px;
+              }
             </style>
             <!-- Load Muze from CDN -->
             <script src="https://cdn.jsdelivr.net/npm/@viz/muze@latest/dist/muze.js"></script>
@@ -112,6 +123,31 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 
                 // Also log to console
                 console.log(message, data);
+              }
+              
+              // Check if Muze is available
+              if (typeof muze === 'undefined') {
+                debugLog('ERROR: Muze library not loaded', {});
+                document.body.innerHTML = '<div class="error-container"><h2>Error: Muze library not loaded</h2><p>The Muze visualization library could not be loaded from CDN. Please check your internet connection and try again.</p></div>' + document.body.innerHTML;
+              } else {
+                debugLog('Muze library loaded', { type: typeof muze });
+                
+                // Add version info to the page
+                try {
+                  const muzeInstance = muze();
+                  const versionInfo = muzeInstance.version || 'Unknown';
+                  debugLog('Muze version', versionInfo);
+                  
+                  const versionEl = document.createElement('div');
+                  versionEl.className = 'muze-version';
+                  versionEl.textContent = 'Muze v' + versionInfo;
+                  document.body.appendChild(versionEl);
+                  
+                  // Send version back to parent
+                  window.parent.postMessage({ type: 'muze-version', version: versionInfo }, '*');
+                } catch (e) {
+                  debugLog('Error getting Muze version', e.message);
+                }
               }
               
               // Initialize Muze
@@ -212,6 +248,15 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
       // Add a load event listener to the iframe to capture console logs
       iframe.onload = () => {
         if (iframe.contentWindow) {
+          // Listen for messages from the iframe
+          const messageHandler = (event: MessageEvent) => {
+            if (event.data && event.data.type === 'muze-version') {
+              setMuzeVersion(event.data.version);
+            }
+          };
+          
+          window.addEventListener('message', messageHandler);
+          
           // Try to access the debug div after the iframe loads
           setTimeout(() => {
             try {
@@ -226,6 +271,10 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               setDebugInfo('Error accessing debug information: ' + (error instanceof Error ? error.message : String(error)));
             }
           }, 1000); // Give it a second to render
+          
+          return () => {
+            window.removeEventListener('message', messageHandler);
+          };
         }
       };
       
@@ -237,7 +286,10 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
 
   return (
     <div className="h-full w-full bg-gray-800 p-2" ref={containerRef}>
-      <div className="bg-gray-700 p-2 mb-2 rounded flex justify-end items-center">
+      <div className="bg-gray-700 p-2 mb-2 rounded flex justify-between items-center">
+        <div className="text-xs text-gray-300">
+          Muze Version: <span className="font-mono">{muzeVersion}</span>
+        </div>
         <button 
           onClick={executeCode}
           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded"
