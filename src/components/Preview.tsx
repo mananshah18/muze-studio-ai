@@ -139,10 +139,14 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 } else {
                   debugLog('Muze library loaded', { type: typeof muze });
                   
-                  // Add version info to the page
                   try {
-                    const muzeInstance = muze();
-                    const versionInfo = muzeInstance.version || 'Unknown';
+                    // Create rawMuze similar to reference implementation
+                    const rawMuze = muze;
+                    debugLog('rawMuze created', { type: typeof rawMuze });
+                    
+                    // Initialize global Muze instance
+                    const muzeGlobalContext = rawMuze();
+                    const versionInfo = muzeGlobalContext.version || 'Unknown';
                     debugLog('Muze version', versionInfo);
                     
                     const versionEl = document.createElement('div');
@@ -170,26 +174,124 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                         { name: "Value", type: "measure", defAggFn: "sum" }
                       ];
                       
-                      const DataModel = muzeInstance.DataModel;
+                      const DataModel = muzeGlobalContext.DataModel;
                       const dm = new DataModel(fallbackData, schema);
                       
-                      muzeInstance
-                        .canvas()
+                      // Create a canvas with configuration similar to reference implementation
+                      const fallbackCanvas = muzeGlobalContext.canvas();
+                      
+                      // Configure canvas with additional options from reference implementation
+                      fallbackCanvas
+                        .config({
+                          interaction: {
+                            tooltip: { enabled: true },
+                            pan: { enabled: true },
+                            zoom: { enabled: true }
+                          },
+                          axes: {
+                            x: {
+                              showAxisName: true,
+                              tickFormat: (d) => d
+                            },
+                            y: {
+                              showAxisName: true,
+                              tickFormat: (d) => d
+                            }
+                          },
+                          legend: {
+                            color: {
+                              position: 'bottom',
+                              align: 'middle'
+                            }
+                          }
+                        })
                         .rows(["Category"])
                         .columns(["Value"])
                         .layers([
                           {
-                            mark: "bar"
+                            mark: "bar",
+                            encoding: {
+                              color: { value: () => '#4CAF50' }
+                            }
                           }
                         ])
                         .data(dm)
                         .mount("#fallback-chart");
                       
+                      // Add animation end event handler
+                      fallbackCanvas.once('animationEnd', () => {
+                        debugLog('Fallback chart animation completed', {});
+                      });
+                      
+                      // Add responsive handling
+                      handleChartDimensionSubscription('#fallback-chart', fallbackCanvas);
+                      
                       debugLog('Fallback chart rendered', { target: '#fallback-chart' });
                       
-                      // Create the viz object with Muze and data functions
+                      // Create the viz object with enhanced Muze API wrapper
                       window.viz = {
-                        muze: muzeInstance,
+                        muze: {
+                          // Core Muze properties from reference implementation
+                          DataStore: rawMuze.DataStore,
+                          DataModel: rawMuze.DataModel,
+                          version: rawMuze.version,
+                          SideEffects: rawMuze.SideEffects,
+                          ActionModel: rawMuze.ActionModel,
+                          layerFactory: rawMuze.layerFactory,
+                          Operators: rawMuze.Operators,
+                          Behaviours: rawMuze.Behaviours,
+                          utils: rawMuze.utils,
+                          Themes: rawMuze.Themes,
+                          
+                          // Canvas method with enhanced configuration
+                          canvas: (muzeContext) => {
+                            const resolvedContext = muzeContext || muzeGlobalContext;
+                            const canvas = resolvedContext.canvas();
+                            
+                            // Add default configuration
+                            canvas.config({
+                              interaction: {
+                                tooltip: { enabled: true },
+                                pan: { enabled: true },
+                                zoom: { enabled: true }
+                              },
+                              axes: {
+                                x: {
+                                  showAxisName: true,
+                                  tickFormat: (d) => d
+                                },
+                                y: {
+                                  showAxisName: true,
+                                  tickFormat: (d) => d
+                                }
+                              },
+                              legend: {
+                                color: {
+                                  position: 'bottom',
+                                  align: 'middle'
+                                }
+                              }
+                            });
+                            
+                            // Override mount method to add responsive handling
+                            const originalMountFn = canvas.mount.bind(canvas);
+                            canvas.mount = (...args) => {
+                              const result = originalMountFn(...args);
+                              if (args[0]) {
+                                try {
+                                  handleChartDimensionSubscription(args[0], canvas);
+                                } catch (e) {
+                                  debugLog('Error in responsive handling', e);
+                                }
+                              }
+                              return result;
+                            };
+                            
+                            return canvas;
+                          }
+                        },
+                        
+                        // Enhanced getDataFromSearchQuery function
                         getDataFromSearchQuery: function() {
                           try {
                             debugLog('getDataFromSearchQuery called', {});
@@ -209,9 +311,9 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                               { name: "Total Sales", type: "measure", defAggFn: "sum" }
                             ];
                             
-                            // Format data and create DataModel instance
-                            const formattedData = muzeInstance.DataModel.loadDataSync(data, schema);
-                            const dm = new muzeInstance.DataModel(formattedData);
+                            // Format data and create DataModel instance using rawMuze
+                            const formattedData = rawMuze.DataModel.loadDataSync(data, schema);
+                            const dm = new rawMuze.DataModel(formattedData);
                             
                             debugLog('DataModel created', { rowCount: data.length });
                             return dm;
