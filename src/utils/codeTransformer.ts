@@ -12,8 +12,19 @@ export function transformCode(code: string): string {
   transformedCode = transformedCode.replace(/const\s+{\s*muze\s*,\s*getDataFromSearchQuery\s*}\s*=\s*viz\s*;/g, 'const { muze, getDataFromSearchQuery } = window.viz;');
   transformedCode = transformedCode.replace(/const\s+{\s*muze\s*,\s*getDataFromSearchQuery\s*}\s*=\s*thoughtspot\s*;/g, 'const { muze, getDataFromSearchQuery } = window.viz;');
   
-  // Handle mount('#chart-container') pattern - ensure it targets #chart
-  transformedCode = transformedCode.replace(/\.mount\s*\(\s*['"]#[\w-]+['"]\s*\)/g, '.mount("#chart")');
+  // Handle mount('#chart-container') pattern - ensure it targets #chart and add responsive handling
+  transformedCode = transformedCode.replace(
+    /(\.\s*mount\s*\(\s*['"]#[\w-]+['"]\s*\))/g, 
+    (match, mountCall) => {
+      // Extract the canvas variable by looking for patterns like:
+      // const canvas = muze.canvas() or canvas.mount('#chart')
+      const canvasVarMatch = transformedCode.match(/(?:const|let|var)\s+(\w+)\s*=\s*muze\.canvas\(\)/);
+      const canvasVar = canvasVarMatch ? canvasVarMatch[1] : 'canvas';
+      
+      // Replace with mount call and add responsive handling
+      return `${mountCall};\n\n// Add responsive chart handling\ntry { window.handleChartDimensionSubscription('#chart', ${canvasVar}); } catch(e) { window.debugLog('Error in responsive handling', e); }`;
+    }
+  );
   
   // Handle ThoughtSpot specific patterns
   transformedCode = transformedCode.replace(/thoughtspot\.getDataFromSearchQuery/g, 'window.viz.getDataFromSearchQuery');
@@ -24,6 +35,21 @@ export function transformCode(code: string): string {
   
   // Handle ChartContext initialization
   transformedCode = transformedCode.replace(/getChartContext\s*\(/g, '// getChartContext handled internally: ');
+  
+  // Add animation end event handler if not present
+  if (transformedCode.includes('.canvas()') && !transformedCode.includes('.once(\'animationEnd\'')) {
+    // Find where the canvas is configured
+    const canvasConfigMatch = transformedCode.match(/(\w+)\s*\.\s*canvas\s*\(\)/);
+    if (canvasConfigMatch) {
+      const canvasVar = canvasConfigMatch[1];
+      // Add animation end handler after canvas creation
+      const canvasCreationRegex = new RegExp(`(${canvasVar}\\s*\\.\\s*canvas\\s*\\(\\))`, 'g');
+      transformedCode = transformedCode.replace(
+        canvasCreationRegex,
+        `$1\n  .once('animationEnd', function() { window.debugLog('Chart animation completed', {}); })`
+      );
+    }
+  }
   
   // Ensure viz is properly referenced
   if (!transformedCode.includes('window.viz') && !transformedCode.includes('const { muze, getDataFromSearchQuery }')) {

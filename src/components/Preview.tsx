@@ -191,20 +191,81 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                       window.viz = {
                         muze: muzeInstance,
                         getDataFromSearchQuery: function() {
-                          const data = [
-                            { "Category": "Furniture", "Total Sales": 1200 },
-                            { "Category": "Office Supplies", "Total Sales": 900 },
-                            { "Category": "Technology", "Total Sales": 1500 },
-                            { "Category": "Clothing", "Total Sales": 800 },
-                            { "Category": "Books", "Total Sales": 600 }
-                          ];
-                          debugLog('getDataFromSearchQuery called', data);
-                          return data;
+                          try {
+                            debugLog('getDataFromSearchQuery called', {});
+                            
+                            // Sample data for ThoughtSpot-like format
+                            const data = [
+                              { "Category": "Furniture", "Total Sales": 1200 },
+                              { "Category": "Office Supplies", "Total Sales": 900 },
+                              { "Category": "Technology", "Total Sales": 1500 },
+                              { "Category": "Clothing", "Total Sales": 800 },
+                              { "Category": "Books", "Total Sales": 600 }
+                            ];
+                            
+                            // Define schema in ThoughtSpot format
+                            const schema = [
+                              { name: "Category", type: "dimension" },
+                              { name: "Total Sales", type: "measure", defAggFn: "sum" }
+                            ];
+                            
+                            // Format data and create DataModel instance
+                            const formattedData = muzeInstance.DataModel.loadDataSync(data, schema);
+                            const dm = new muzeInstance.DataModel(formattedData);
+                            
+                            debugLog('DataModel created', { rowCount: data.length });
+                            return dm;
+                          } catch (error) {
+                            debugLog('Error in getDataFromSearchQuery', { 
+                              message: error.message,
+                              stack: error.stack
+                            });
+                            throw error;
+                          }
                         }
                       };
                       
-                      // Make debugLog available globally
+                      // Add responsive chart handling
+                      function handleChartDimensionSubscription(mountElem, canvas) {
+                        const canvasContainer = typeof mountElem === 'string' 
+                          ? document.querySelector(mountElem) 
+                          : mountElem;
+                          
+                        if (!canvasContainer) {
+                          debugLog('Chart container not found', { selector: mountElem });
+                          return;
+                        }
+                        
+                        // Set initial dimensions
+                        const setDimensions = () => {
+                          const width = canvasContainer.clientWidth;
+                          const height = canvasContainer.clientHeight;
+                          debugLog('Setting chart dimensions', { width, height });
+                          canvas.width(width);
+                          canvas.height(height);
+                        };
+                        
+                        // Set initial dimensions
+                        setDimensions();
+                        
+                        // Add resize observer if available
+                        if (window.ResizeObserver) {
+                          const resizeObserver = new ResizeObserver(() => {
+                            setDimensions();
+                          });
+                          
+                          resizeObserver.observe(canvasContainer);
+                          
+                          // Clean up on chart disposal
+                          canvas.on('afterDisposed', () => {
+                            resizeObserver.disconnect();
+                          });
+                        }
+                      }
+                      
+                      // Make functions available globally
                       window.debugLog = debugLog;
+                      window.handleChartDimensionSubscription = handleChartDimensionSubscription;
                       
                       // Execute the user's code
                       try {
