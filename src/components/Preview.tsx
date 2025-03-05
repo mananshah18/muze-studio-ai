@@ -31,7 +31,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 margin: 0;
                 padding: 0;
                 font-family: Arial, sans-serif;
-                background-color: #f5f5f5;
+                background-color: #ffffff;
               }
               #chart {
                 width: 100%;
@@ -46,31 +46,29 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               }
             </style>
             <!-- Load Muze from CDN -->
-            <script>
-              // Create a placeholder for Muze until the library loads
-              window.Muze = null;
-              window.viz = null;
-            </script>
             <script src="https://cdn.jsdelivr.net/npm/@viz/muze@latest/dist/muze.js"></script>
             <script>
-              // Initialize Muze when loaded
+              // Initialize Muze and ThoughtSpot integration
               document.addEventListener('DOMContentLoaded', function() {
                 if (typeof muze !== 'undefined') {
                   window.Muze = muze();
-                  window.viz = window.Muze;
+                  
+                  // Create the viz object that mimics ThoughtSpot's API
+                  window.viz = {
+                    muze: window.Muze,
+                    getDataFromSearchQuery: function() {
+                      // Sample data that mimics ThoughtSpot's data format
+                      return [
+                        { "Category": "Furniture", "Total Sales": 1200 },
+                        { "Category": "Office Supplies", "Total Sales": 900 },
+                        { "Category": "Technology", "Total Sales": 1500 },
+                        { "Category": "Clothing", "Total Sales": 800 },
+                        { "Category": "Books", "Total Sales": 600 }
+                      ];
+                    }
+                  };
                 }
               });
-
-              // Mock function for getDataFromSearchQuery if needed
-              function getDataFromSearchQuery() {
-                return [
-                  { "Category": "Furniture", "Total Sales": 1200 },
-                  { "Category": "Office Supplies", "Total Sales": 900 },
-                  { "Category": "Technology", "Total Sales": 1500 },
-                  { "Category": "Clothing", "Total Sales": 800 },
-                  { "Category": "Books", "Total Sales": 600 }
-                ];
-              }
             </script>
           </head>
           <body>
@@ -87,17 +85,8 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               
               waitForMuze(function() {
                 try {
-                  // If the code contains a createChart function, use it
-                  if (${transformedCode.includes('function createChart')}) {
-                    ${transformedCode}
-                    if (typeof createChart === 'function') {
-                      createChart(document.getElementById('chart'));
-                    }
-                  } 
-                  // Otherwise, execute the code directly
-                  else {
-                    ${transformedCode}
-                  }
+                  // Execute the code directly
+                  ${transformedCode}
                 } catch (error) {
                   document.getElementById('chart').innerHTML = 
                     '<div class="error-container">' + 
@@ -123,8 +112,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
 
   return (
     <div className="h-full w-full bg-gray-800 p-2" ref={containerRef}>
-      <div className="bg-gray-700 p-2 mb-2 rounded flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Chart Preview</h2>
+      <div className="bg-gray-700 p-2 mb-2 rounded flex justify-end items-center">
         <button 
           onClick={executeCode}
           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded"
