@@ -3,15 +3,18 @@ import { Editor, Preview, Header } from './components';
 import Split from 'split.js';
 
 function App() {
-  const [code, setCode] = useState<string>(`const { muze, getDataFromSearchQuery } = viz;
+  const [code, setCode] = useState<string>(`// Get the Muze library and data function from viz
+const { muze, getDataFromSearchQuery } = viz;
 
+// Get sample data
 const data = getDataFromSearchQuery();
 
+// Create and configure the chart
 muze.canvas()
   .rows(["Total Sales"])
   .columns(["Category"])
   .data(data)
-  .mount("#chart")
+  .mount("#chart");
 `);
 
   useEffect(() => {
