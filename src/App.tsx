@@ -3,30 +3,28 @@ import { Editor, Preview, Header } from './components';
 import Split from 'split.js';
 
 function App() {
-  const [code, setCode] = useState<string>(`// Get the Muze library and data function from ThoughtSpot
-const { muze, getDataFromSearchQuery } = viz;
+  const [code, setCode] = useState<string>(`// Basic Muze chart example
+// Get the Muze library
+const { muze } = viz;
 
-// Get data from ThoughtSpot search query
-const data = getDataFromSearchQuery();
+// Create a simple bar chart
+const canvas = muze.canvas();
 
-// Create and configure the chart
-muze.canvas()
-  .rows(["Total Sales"])
-  .columns(["Category"])
+// Get data from the ThoughtSpot query
+const data = viz.getDataFromSearchQuery();
+
+// Log the data to see what we're working with
+debugLog('Data received for chart', data);
+
+// Configure and render the chart
+canvas
   .data(data)
-  .mount("#chart");
+  .rows(['Total Sales'])
+  .columns(['Category'])
+  .mount('#chart');
 
-// You can also use more advanced configurations:
-/*
-muze.canvas()
-  .rows(["Total Sales"])
-  .columns(["Category"])
-  .color("Region")
-  .data(data)
-  .title("Sales by Category and Region")
-  .subtitle("Data from ThoughtSpot")
-  .mount("#chart");
-*/
+// Log when the chart is mounted
+debugLog('Chart mounted', { target: '#chart' });
 `);
 
   useEffect(() => {
