@@ -93,8 +93,8 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 border-radius: 3px;
               }
             </style>
-            <!-- Load Muze from CDN -->
-            <script src="https://cdn.jsdelivr.net/npm/@viz/muze@latest/dist/muze.js"></script>
+            <!-- Load Muze from local file -->
+            <script src="/lib/muze.js"></script>
           </head>
           <body>
             <div class="section-title">User Chart</div>
@@ -128,7 +128,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               // Check if Muze is available
               if (typeof muze === 'undefined') {
                 debugLog('ERROR: Muze library not loaded', {});
-                document.body.innerHTML = '<div class="error-container"><h2>Error: Muze library not loaded</h2><p>The Muze visualization library could not be loaded from CDN. Please check your internet connection and try again.</p></div>' + document.body.innerHTML;
+                document.body.innerHTML = '<div class="error-container"><h2>Error: Muze library not loaded</h2><p>The Muze visualization library could not be loaded. Please check your internet connection and try again.</p></div>' + document.body.innerHTML;
               } else {
                 debugLog('Muze library loaded', { type: typeof muze });
                 
