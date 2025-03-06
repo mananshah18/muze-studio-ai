@@ -1,7 +1,14 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { transformCode } from '../utils/codeTransformer';
-import { ChartConfig, ChartModel, ColumnType, Query, getChartContext } from '@thoughtspot/ts-chart-sdk';
-
+import React, { useRef, useState, useEffect } from "react";
+import { transformCode } from "../utils/codeTransformer";
+import {
+  ChartConfig,
+  ChartModel,
+  ColumnType,
+  Query,
+  getChartContext,
+} from "@thoughtspot/ts-chart-sdk";
+import muze from "@viz/muze";
+import "@viz/muze/muze.css";
 interface PreviewProps {
   code: string;
 }
@@ -10,8 +17,8 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>('');
-  const [muzeVersion, setMuzeVersion] = useState<string>('Unknown');
+  const [debugInfo, setDebugInfo] = useState<string>("");
+  const [muzeVersion, setMuzeVersion] = useState(muze.version);
 
   // Auto-execute code when component mounts
   useEffect(() => {
@@ -21,15 +28,15 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
   const executeCode = () => {
     if (!containerRef.current || !iframeRef.current) return;
     setError(null);
-    setDebugInfo('');
+    setDebugInfo("");
 
     try {
       // Transform the code to be executable in the iframe
       const transformedCode = transformCode(code);
-      
+
       // Add our own debug logs to see what's happening
       console.log("Transformed code:", transformedCode);
-      
+
       // Create the HTML content for the iframe
       const htmlContent = `
         <!DOCTYPE html>
@@ -38,6 +45,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Chart Preview</title>
+            <link rel="stylesheet" href="/lib/muze.css">
             <style>
               body {
                 margin: 0;
@@ -97,7 +105,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
             <script src="https://d3js.org/d3.v5.min.js"></script>
             
             <!-- Load Muze from local file -->
-            <script src="/lib/muze.js"></script>
+            <script type="module" src="/lib/muze.js"></script>
           </head>
           <body>
             <div class="section-title">User Chart</div>
@@ -107,7 +115,10 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
             <div id="fallback-chart"></div>
             
             <div id="debug"></div>
-            <script>
+            
+            <script type="module">
+              import muze from "/lib/muze.js";
+
               // Simple debug function that writes to the debug div
               function debugLog(message, data) {
                 const debugEl = document.getElementById('debug');
@@ -127,11 +138,11 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 // Also log to console
                 console.log(message, data);
               }
-              
+              // debugger;
               // Wait for everything to load
-              window.onload = function() {
+              // window.onload = function() {
                 debugLog('Window loaded', {});
-                
+                // debugger;
                 // Check if Muze is available
                 if (typeof muze === 'undefined') {
                   debugLog('ERROR: Muze library not loaded', {});
@@ -139,9 +150,10 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                 } else {
                   debugLog('Muze library loaded', { type: typeof muze });
                   
+
                   // Add version info to the page
                   try {
-                    const muzeInstance = muze();
+                    const muzeInstance = muze;
                     const versionInfo = muzeInstance.version || 'Unknown';
                     debugLog('Muze version', versionInfo);
                     
@@ -170,10 +182,11 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                         { name: "Value", type: "measure", defAggFn: "sum" }
                       ];
                       
-                      const DataModel = muzeInstance.DataModel;
-                      const dm = new DataModel(fallbackData, schema);
+                      const { DataModel } = muzeInstance;
+                      const formattedData = DataModel.loadDataSync(fallbackData, schema);
+                      let rootData = new DataModel(formattedData);
                       
-                      muzeInstance
+                      muzeInstance()
                         .canvas()
                         .rows(["Category"])
                         .columns(["Value"])
@@ -182,7 +195,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                             mark: "bar"
                           }
                         ])
-                        .data(dm)
+                        .data(rootData)
                         .mount("#fallback-chart");
                       
                       debugLog('Fallback chart rendered', { target: '#fallback-chart' });
@@ -234,52 +247,57 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
                     debugLog('Error initializing Muze', e.message);
                   }
                 }
-              };
+              // };
             </script>
           </body>
         </html>
       `;
-      
+
       // Set the srcdoc attribute
       const iframe = iframeRef.current;
       iframe.srcdoc = htmlContent;
-      
+
       // Add a load event listener to the iframe to capture console logs
       iframe.onload = () => {
         if (iframe.contentWindow) {
           // Listen for messages from the iframe
           const messageHandler = (event: MessageEvent) => {
-            if (event.data && event.data.type === 'muze-version') {
+            if (event.data && event.data.type === "muze-version") {
               setMuzeVersion(event.data.version);
             }
           };
-          
-          window.addEventListener('message', messageHandler);
-          
+
+          window.addEventListener("message", messageHandler);
+
           // Try to access the debug div after the iframe loads
           setTimeout(() => {
             try {
-              const debugContent = iframe.contentDocument?.getElementById('debug')?.innerHTML;
+              const debugContent =
+                iframe.contentDocument?.getElementById("debug")?.innerHTML;
               if (debugContent) {
                 setDebugInfo(debugContent);
               } else {
-                setDebugInfo('No debug information available');
+                setDebugInfo("No debug information available");
               }
             } catch (error) {
-              console.error('Error accessing iframe content:', error);
-              setDebugInfo('Error accessing debug information: ' + (error instanceof Error ? error.message : String(error)));
+              console.error("Error accessing iframe content:", error);
+              setDebugInfo(
+                "Error accessing debug information: " +
+                  (error instanceof Error ? error.message : String(error))
+              );
             }
           }, 1000); // Give it a second to render
-          
+
           return () => {
-            window.removeEventListener('message', messageHandler);
+            window.removeEventListener("message", messageHandler);
           };
         }
       };
-      
     } catch (error) {
-      console.error('Error in preview component:', error);
-      setError(error instanceof Error ? error.message : 'An unknown error occurred');
+      console.error("Error in preview component:", error);
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     }
   };
 
@@ -289,7 +307,7 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
         <div className="text-xs text-gray-300">
           Muze Version: <span className="font-mono">{muzeVersion}</span>
         </div>
-        <button 
+        <button
           onClick={executeCode}
           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded"
         >
@@ -303,15 +321,15 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
         </div>
       )}
       <div className="h-[calc(100%-3rem)] bg-white rounded flex flex-col">
-        <iframe 
+        <iframe
           ref={iframeRef}
           className="w-full flex-grow border-0"
           title="Chart Preview"
           sandbox="allow-scripts allow-same-origin"
         />
-        <div 
+        <div
           className="bg-gray-100 border-t border-gray-300 p-2 text-xs font-mono overflow-auto"
-          style={{ maxHeight: '30%', minHeight: '100px' }}
+          style={{ maxHeight: "30%", minHeight: "100px" }}
           dangerouslySetInnerHTML={{ __html: debugInfo }}
         />
       </div>
@@ -319,4 +337,4 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
   );
 };
 
-export default Preview; 
+export default Preview;

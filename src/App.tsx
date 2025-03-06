@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Editor, Preview, Header } from './components';
-import Split from 'split.js';
+import { useState, useEffect } from "react";
+import { Editor, Preview, Header } from "./components";
+import Split from "split.js";
 
 function App() {
   const [code, setCode] = useState<string>(`// Get the Muze library
-const { muze } = viz;
+
+const muze = require("@viz/muze");
 
 // Sample data
 const data = [
@@ -19,10 +20,11 @@ const schema = [
   { name: "Value", type: "measure", defAggFn: "sum" }
 ];
 
-const DataModel = muze.DataModel;
-const dm = new DataModel(data, schema);
+const { DataModel } = muze;
+const formattedData = DataModel.loadDataSync(data, schema);
+let rootData = new DataModel(formattedData);
 
-muze
+muze()
   .canvas()
   .rows(["Category"])
   .columns(["Value"])
@@ -31,17 +33,17 @@ muze
       mark: "bar"
     }
   ])
-  .data(dm)
+  .data(rootData)
   .mount("#chart");
 `);
 
   useEffect(() => {
     // Initialize split.js
-    const split = Split(['.editor-container', '.preview-container'], {
+    const split = Split([".editor-container", ".preview-container"], {
       sizes: [50, 50],
       minSize: [300, 300],
       gutterSize: 10,
-      cursor: 'col-resize'
+      cursor: "col-resize",
     });
 
     return () => {
@@ -65,4 +67,4 @@ muze
   );
 }
 
-export default App; 
+export default App;
