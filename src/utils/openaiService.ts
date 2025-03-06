@@ -20,6 +20,19 @@ muze
   .mount('#chart');
 `;
 
+// Types for chart recommendation
+export interface ChartRecommendation {
+  chartType: string;
+  rationale: string;
+  configuration: {
+    xAxis?: string;
+    yAxis?: string;
+    layers?: string[];
+    encodings?: Record<string, string>;
+    [key: string]: any;
+  };
+}
+
 // Get the current prompt from the EXPERIMENTAL_PROMPTS object
 const getCurrentPrompt = () => {
   try {
@@ -31,6 +44,111 @@ const getCurrentPrompt = () => {
     return SYSTEM_PROMPT;
   }
 };
+
+/**
+ * Extracts chart recommendation information from the LLM response
+ * @param response The raw response from OpenAI
+ * @returns The extracted chart recommendation or null if not found
+ */
+function extractChartRecommendation(response: string): ChartRecommendation | null {
+  try {
+    console.log(`[OpenAI Service] Extracting chart recommendation from response`);
+    
+    // Check if the response contains a chart recommendation section
+    if (!response.includes('Chart Recommendation:')) {
+      console.log('[OpenAI Service] No chart recommendation found in response');
+      return null;
+    }
+    
+    // Extract the chart recommendation section
+    const recommendationRegex = /Chart Recommendation:[\s\S]*?Configuration Details:[\s\S]*?(?=```|$)/;
+    const recommendationMatch = response.match(recommendationRegex);
+    
+    if (!recommendationMatch) {
+      console.log('[OpenAI Service] Could not extract chart recommendation section');
+      return null;
+    }
+    
+    const recommendationText = recommendationMatch[0];
+    
+    // Extract chart type
+    const chartTypeRegex = /Recommended Chart Type:\s*(.*?)(?:\n|$)/;
+    const chartTypeMatch = recommendationText.match(chartTypeRegex);
+    const chartType = chartTypeMatch ? chartTypeMatch[1].trim() : 'Unknown Chart Type';
+    
+    // Extract rationale
+    const rationaleRegex = /Rationale:\s*(.*?)(?:\n\n|\n[^-\s]|$)/s;
+    const rationaleMatch = recommendationText.match(rationaleRegex);
+    const rationale = rationaleMatch ? rationaleMatch[1].trim() : '';
+    
+    // Extract configuration details
+    const configuration: ChartRecommendation['configuration'] = {};
+    
+    // Extract x-axis
+    const xAxisRegex = /x-axis:\s*(.*?)(?:\n|$)/;
+    const xAxisMatch = recommendationText.match(xAxisRegex);
+    if (xAxisMatch) {
+      configuration.xAxis = xAxisMatch[1].trim();
+    }
+    
+    // Extract y-axis
+    const yAxisRegex = /y-axis:\s*(.*?)(?:\n|$)/;
+    const yAxisMatch = recommendationText.match(yAxisRegex);
+    if (yAxisMatch) {
+      configuration.yAxis = yAxisMatch[1].trim();
+    }
+    
+    // Extract layers/encodings
+    const layersRegex = /Layers\/Encodings:([\s\S]*?)(?=\n\n|\n[^-\s]|$)/;
+    const layersMatch = recommendationText.match(layersRegex);
+    if (layersMatch) {
+      const layersText = layersMatch[1];
+      const layers: string[] = [];
+      const encodings: Record<string, string> = {};
+      
+      // Extract individual layer/encoding items
+      const itemRegex = /-\s*(.*?)(?:\n|$)/g;
+      let itemMatch;
+      while ((itemMatch = itemRegex.exec(layersText)) !== null) {
+        const item = itemMatch[1].trim();
+        
+        // Check if it's a color encoding
+        if (item.toLowerCase().includes('color:')) {
+          encodings.color = item;
+        } 
+        // Check if it's a size encoding
+        else if (item.toLowerCase().includes('size:')) {
+          encodings.size = item;
+        }
+        // Check if it's a shape encoding
+        else if (item.toLowerCase().includes('shape:')) {
+          encodings.shape = item;
+        }
+        // Otherwise, treat as a general layer
+        else {
+          layers.push(item);
+        }
+      }
+      
+      if (layers.length > 0) {
+        configuration.layers = layers;
+      }
+      
+      if (Object.keys(encodings).length > 0) {
+        configuration.encodings = encodings;
+      }
+    }
+    
+    return {
+      chartType,
+      rationale,
+      configuration
+    };
+  } catch (error) {
+    console.error('[OpenAI Service] Error extracting chart recommendation:', error);
+    return null;
+  }
+}
 
 /**
  * Processes the OpenAI response to extract only the code part
@@ -159,7 +277,7 @@ function timeoutPromise(ms: number): Promise<never> {
  * @param endpoint The Azure OpenAI endpoint
  * @param deploymentId The Azure OpenAI deployment ID
  * @param apiVersion The Azure OpenAI API version
- * @returns The generated code
+ * @returns An object containing the generated code and chart recommendation
  */
 async function callAzureOpenAI(
   query: string,
@@ -167,7 +285,7 @@ async function callAzureOpenAI(
   endpoint: string,
   deploymentId: string,
   apiVersion: string
-): Promise<string> {
+): Promise<{ code: string; recommendation: ChartRecommendation | null }> {
   try {
     const url = `${endpoint}/openai/deployments/${deploymentId}/chat/completions?api-version=${apiVersion}`;
     
@@ -205,9 +323,15 @@ async function callAzureOpenAI(
     const data = await response.json();
     console.log('[OpenAI Service] Azure OpenAI response received');
     
-    const generatedCode = data.choices[0]?.message?.content || '';
-    const extractedCode = extractCodeFromResponse(generatedCode);
-    return validateCode(extractedCode);
+    const generatedContent = data.choices[0]?.message?.content || '';
+    const recommendation = extractChartRecommendation(generatedContent);
+    const extractedCode = extractCodeFromResponse(generatedContent);
+    const validatedCode = validateCode(extractedCode);
+    
+    return {
+      code: validatedCode,
+      recommendation
+    };
   } catch (error) {
     console.error('[OpenAI Service] Error in Azure OpenAI call:', error);
     throw error; // Re-throw to be handled by the caller
@@ -217,9 +341,9 @@ async function callAzureOpenAI(
 /**
  * Generates Muze chart code based on a natural language query using OpenAI
  * @param query The natural language query describing the desired chart
- * @returns The generated Muze chart code
+ * @returns An object containing the generated code and chart recommendation
  */
-export async function generateChartCode(query: string): Promise<string> {
+export async function generateChartCode(query: string): Promise<{ code: string; recommendation: ChartRecommendation | null }> {
   try {
     console.log('[OpenAI Service] Generating chart code for query:', query);
     
@@ -254,7 +378,10 @@ export async function generateChartCode(query: string): Promise<string> {
       throw new Error('OpenAI API key is not configured. Please set VITE_OPENAI_API_KEY in your .env file.');
     }
     
-    let generatedCode = '';
+    let result: { code: string; recommendation: ChartRecommendation | null } = {
+      code: '',
+      recommendation: null
+    };
     
     try {
       if (apiType === 'azure') {
@@ -267,7 +394,7 @@ export async function generateChartCode(query: string): Promise<string> {
         }
         
         // Use direct fetch for Azure OpenAI
-        generatedCode = await callAzureOpenAI(query, apiKey, endpoint, deploymentId, apiVersion);
+        result = await callAzureOpenAI(query, apiKey, endpoint, deploymentId, apiVersion);
       } else {
         // For standard OpenAI API
         const openai = new OpenAI({
@@ -296,34 +423,49 @@ export async function generateChartCode(query: string): Promise<string> {
         
         console.log('[OpenAI Service] Response received from OpenAI');
         
-        const rawCode = response.choices[0]?.message?.content || '';
-        const extractedCode = extractCodeFromResponse(rawCode);
-        generatedCode = validateCode(extractedCode);
+        const rawContent = response.choices[0]?.message?.content || '';
+        const recommendation = extractChartRecommendation(rawContent);
+        const extractedCode = extractCodeFromResponse(rawContent);
+        const validatedCode = validateCode(extractedCode);
+        
+        result = {
+          code: validatedCode,
+          recommendation
+        };
       }
     } catch (error) {
       console.error('[OpenAI Service] Error during API call:', error);
       
       // Return fallback code in case of API error
       console.log('[OpenAI Service] Using fallback code due to API error');
-      return `// Error occurred while generating chart code: ${error instanceof Error ? error.message : 'Unknown error'}
+      return {
+        code: `// Error occurred while generating chart code: ${error instanceof Error ? error.message : 'Unknown error'}
 // Using fallback chart code instead
-${DEFAULT_FALLBACK_CODE}`;
+${DEFAULT_FALLBACK_CODE}`,
+        recommendation: null
+      };
     }
     
-    if (!generatedCode || generatedCode.trim() === '') {
+    if (!result.code || result.code.trim() === '') {
       console.warn('[OpenAI Service] Generated code is empty, using fallback');
-      return DEFAULT_FALLBACK_CODE;
+      return {
+        code: DEFAULT_FALLBACK_CODE,
+        recommendation: result.recommendation
+      };
     }
     
-    console.log('[OpenAI Service] Final generated code length:', generatedCode.length);
-    return generatedCode;
+    console.log('[OpenAI Service] Final generated code length:', result.code.length);
+    return result;
   } catch (error) {
     console.error('[OpenAI Service] Error generating chart code:', error);
     console.error('[OpenAI Service] Error details:', error instanceof Error ? error.message : 'Unknown error');
     
     // Always return fallback code instead of throwing
-    return `// Error occurred while generating chart code: ${error instanceof Error ? error.message : 'Unknown error'}
+    return {
+      code: `// Error occurred while generating chart code: ${error instanceof Error ? error.message : 'Unknown error'}
 // Using fallback chart code instead
-${DEFAULT_FALLBACK_CODE}`;
+${DEFAULT_FALLBACK_CODE}`,
+      recommendation: null
+    };
   }
 } 

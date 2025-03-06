@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Editor, Preview } from "./components";
-import { generateChartCode } from "./utils/openaiService";
+import ChartRenderer from "./components/ChartRenderer";
+import { generateChartCode, ChartRecommendation } from "./utils/openaiService";
 import Split from "split.js";
 
 function App() {
@@ -41,6 +42,8 @@ muze()
   const [query, setQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [chartRecommendation, setChartRecommendation] = useState<ChartRecommendation | null>(null);
+  const [useThoughtSpotData, setUseThoughtSpotData] = useState<boolean>(false);
 
   useEffect(() => {
     // Initialize split.js
@@ -67,16 +70,77 @@ muze()
     
     setIsLoading(true);
     setError(null);
+    setChartRecommendation(null);
     
     try {
-      const generatedCode = await generateChartCode(query);
-      setCode(generatedCode);
+      const result = await generateChartCode(query);
+      setCode(result.code);
+      setChartRecommendation(result.recommendation);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       console.error(err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Function to toggle ThoughtSpot data usage
+  const toggleThoughtSpotData = () => {
+    setUseThoughtSpotData(prev => !prev);
+  };
+
+  // Function to render chart recommendation details
+  const renderChartRecommendation = () => {
+    if (!chartRecommendation) return null;
+
+    return (
+      <div className="bg-gray-800 p-4 border-t border-gray-700">
+        <div className="container mx-auto">
+          <h2 className="text-xl font-semibold mb-2">Chart Recommendation</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-lg font-medium text-blue-400">
+                {chartRecommendation.chartType}
+              </h3>
+              <p className="text-gray-300 mt-1">{chartRecommendation.rationale}</p>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-medium mb-2">Configuration</h3>
+              <ul className="space-y-1 text-gray-300">
+                {chartRecommendation.configuration.xAxis && (
+                  <li><span className="text-gray-400">X-Axis:</span> {chartRecommendation.configuration.xAxis}</li>
+                )}
+                {chartRecommendation.configuration.yAxis && (
+                  <li><span className="text-gray-400">Y-Axis:</span> {chartRecommendation.configuration.yAxis}</li>
+                )}
+                {chartRecommendation.configuration.layers && chartRecommendation.configuration.layers.length > 0 && (
+                  <li>
+                    <span className="text-gray-400">Layers:</span>
+                    <ul className="ml-4 mt-1">
+                      {chartRecommendation.configuration.layers.map((layer, index) => (
+                        <li key={index}>• {layer}</li>
+                      ))}
+                    </ul>
+                  </li>
+                )}
+                {chartRecommendation.configuration.encodings && Object.keys(chartRecommendation.configuration.encodings).length > 0 && (
+                  <li>
+                    <span className="text-gray-400">Encodings:</span>
+                    <ul className="ml-4 mt-1">
+                      {Object.entries(chartRecommendation.configuration.encodings).map(([key, value], index) => (
+                        <li key={index}>• {value}</li>
+                      ))}
+                    </ul>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -113,15 +177,36 @@ muze()
               Error: {error}
             </div>
           )}
+          
+          <div className="mt-4 flex items-center">
+            <label className="inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer"
+                checked={useThoughtSpotData}
+                onChange={toggleThoughtSpotData}
+              />
+              <div className="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <span className="ms-3 text-sm font-medium text-gray-300">
+                Use ThoughtSpot Data
+              </span>
+            </label>
+          </div>
         </div>
       </header>
+      
+      {chartRecommendation && renderChartRecommendation()}
       
       <div className="flex-1 flex overflow-hidden">
         <div className="editor-container w-1/2 overflow-auto">
           <Editor code={code} onChange={setCode} />
         </div>
         <div className="preview-container w-1/2 overflow-auto">
-          <Preview code={code} />
+          {useThoughtSpotData ? (
+            <ChartRenderer code={code} useThoughtSpotData={true} />
+          ) : (
+            <Preview code={code} />
+          )}
         </div>
       </div>
     </div>

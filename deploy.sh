@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Deployment script for Vercel
+
 # Build the project
 echo "Building the project..."
 npm run build
@@ -15,4 +17,4 @@ fi
 echo "Deploying to Vercel..."
 vercel --prod
 
-echo "Deployment complete! Your app should be live soon." 
+echo "Deployment complete!" 
