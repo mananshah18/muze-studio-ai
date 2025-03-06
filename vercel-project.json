@@ -1,0 +1,23 @@
+{
+  "projectId": "muze-studio-ai",
+  "orgId": "your-org-id",
+  "settings": {
+    "framework": "vite",
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "rootDirectory": ".",
+    "regions": ["sfo1"],
+    "public": true
+  },
+  "github": {
+    "enabled": true,
+    "silent": false,
+    "autoJobCancelation": true,
+    "deploymentEnabled": {
+      "main": false,
+      "Integrate-muze": true
+    }
+  }
+} 
