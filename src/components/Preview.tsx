@@ -17,7 +17,6 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>("");
   const [muzeVersion, setMuzeVersion] = useState(muze.version);
 
   // Auto-execute code when component mounts
@@ -28,14 +27,10 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
   const executeCode = () => {
     if (!containerRef.current || !iframeRef.current) return;
     setError(null);
-    setDebugInfo("");
 
     try {
       // Transform the code to be executable in the iframe
       const transformedCode = transformCode(code);
-
-      // Add our own debug logs to see what's happening
-      console.log("Transformed code:", transformedCode);
 
       // Create the HTML content for the iframe
       const htmlContent = `
@@ -58,37 +53,14 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
               }
               #chart {
                 width: 100%;
-                height: 300px;
+                height: 100%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-bottom: 1px solid #ccc;
-              }
-              #fallback-chart {
-                width: 100%;
-                height: 200px;
-                margin-top: 20px;
-                border-top: 1px solid #ccc;
-                padding-top: 10px;
-              }
-              #debug {
-                padding: 10px;
-                background-color: #f0f0f0;
-                font-family: monospace;
-                font-size: 12px;
-                overflow: auto;
-                max-height: 30vh;
               }
               .error-container {
                 color: red;
                 padding: 20px;
-              }
-              .section-title {
-                font-size: 14px;
-                font-weight: bold;
-                margin: 10px 0;
-                color: #333;
-                text-align: center;
               }
               .muze-version {
                 position: absolute;
@@ -108,146 +80,62 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
             <script type="module" src="/lib/muze.js"></script>
           </head>
           <body>
-            <div class="section-title">User Chart</div>
             <div id="chart"></div>
-            
-            <div class="section-title">Fallback Chart (Always Renders)</div>
-            <div id="fallback-chart"></div>
-            
-            <div id="debug"></div>
             
             <script type="module">
               import muze from "/lib/muze.js";
 
-              // Simple debug function that writes to the debug div
-              function debugLog(message, data) {
-                const debugEl = document.getElementById('debug');
-                const logItem = document.createElement('div');
-                
-                // Format the message and data
-                let dataStr = '';
+              // Check if Muze is available
+              if (typeof muze === 'undefined') {
+                document.body.innerHTML = '<div class="error-container"><h2>Error: Muze library not loaded</h2><p>The Muze visualization library could not be loaded. Please check your internet connection and try again.</p></div>' + document.body.innerHTML;
+                window.parent.postMessage({ type: 'error-detected' }, '*');
+              } else {
+                // Add version info to the page
                 try {
-                  dataStr = JSON.stringify(data, null, 2);
-                } catch (e) {
-                  dataStr = String(data);
-                }
-                
-                logItem.innerHTML = '<strong>' + message + '</strong>: ' + dataStr;
-                debugEl.appendChild(logItem);
-                
-                // Also log to console
-                console.log(message, data);
-              }
-              // debugger;
-              // Wait for everything to load
-              // window.onload = function() {
-                debugLog('Window loaded', {});
-                // debugger;
-                // Check if Muze is available
-                if (typeof muze === 'undefined') {
-                  debugLog('ERROR: Muze library not loaded', {});
-                  document.body.innerHTML = '<div class="error-container"><h2>Error: Muze library not loaded</h2><p>The Muze visualization library could not be loaded. Please check your internet connection and try again.</p></div>' + document.body.innerHTML;
-                } else {
-                  debugLog('Muze library loaded', { type: typeof muze });
+                  const muzeInstance = muze;
+                  const versionInfo = muzeInstance.version || 'Unknown';
                   
-
-                  // Add version info to the page
-                  try {
-                    const muzeInstance = muze;
-                    const versionInfo = muzeInstance.version || 'Unknown';
-                    debugLog('Muze version', versionInfo);
-                    
-                    const versionEl = document.createElement('div');
-                    versionEl.className = 'muze-version';
-                    versionEl.textContent = 'Muze v' + versionInfo;
-                    document.body.appendChild(versionEl);
-                    
-                    // Send version back to parent
-                    window.parent.postMessage({ type: 'muze-version', version: versionInfo }, '*');
-                    
-                    // Initialize Muze
-                    try {
-                      debugLog('Creating fallback chart', {});
-                      
-                      // Sample data for the fallback chart
-                      const fallbackData = [
-                        { Category: "A", Value: 30 },
-                        { Category: "B", Value: 70 },
-                        { Category: "C", Value: 50 }
+                  const versionEl = document.createElement('div');
+                  versionEl.className = 'muze-version';
+                  versionEl.textContent = 'Muze v' + versionInfo;
+                  document.body.appendChild(versionEl);
+                  
+                  // Send version back to parent
+                  window.parent.postMessage({ type: 'muze-version', version: versionInfo }, '*');
+                  
+                  // Create the viz object with Muze and data functions
+                  window.viz = {
+                    muze: muzeInstance,
+                    getDataFromSearchQuery: function() {
+                      const data = [
+                        { "Category": "Furniture", "Total Sales": 1200 },
+                        { "Category": "Office Supplies", "Total Sales": 900 },
+                        { "Category": "Technology", "Total Sales": 1500 },
+                        { "Category": "Clothing", "Total Sales": 800 },
+                        { "Category": "Books", "Total Sales": 600 }
                       ];
-                      
-                      // Define schema
-                      const schema = [
-                        { name: "Category", type: "dimension" },
-                        { name: "Value", type: "measure", defAggFn: "sum" }
-                      ];
-                      
-                      const { DataModel } = muzeInstance;
-                      const formattedData = DataModel.loadDataSync(fallbackData, schema);
-                      let rootData = new DataModel(formattedData);
-                      
-                      muzeInstance()
-                        .canvas()
-                        .rows(["Category"])
-                        .columns(["Value"])
-                        .layers([
-                          {
-                            mark: "bar"
-                          }
-                        ])
-                        .data(rootData)
-                        .mount("#fallback-chart");
-                      
-                      debugLog('Fallback chart rendered', { target: '#fallback-chart' });
-                      
-                      // Create the viz object with Muze and data functions
-                      window.viz = {
-                        muze: muzeInstance,
-                        getDataFromSearchQuery: function() {
-                          const data = [
-                            { "Category": "Furniture", "Total Sales": 1200 },
-                            { "Category": "Office Supplies", "Total Sales": 900 },
-                            { "Category": "Technology", "Total Sales": 1500 },
-                            { "Category": "Clothing", "Total Sales": 800 },
-                            { "Category": "Books", "Total Sales": 600 }
-                          ];
-                          debugLog('getDataFromSearchQuery called', data);
-                          return data;
-                        }
-                      };
-                      
-                      // Make debugLog available globally
-                      window.debugLog = debugLog;
-                      
-                      // Execute the user's code
-                      try {
-                        debugLog('Starting user code execution', {});
-                        
-                        ${transformedCode}
-                        
-                        debugLog('User code execution completed', {});
-                      } catch (error) {
-                        debugLog('Error executing user code', { 
-                          message: error.message,
-                          stack: error.stack
-                        });
-                        
-                        document.getElementById('chart').innerHTML = 
-                          '<div class="error-container">' + 
-                          '<h3>Error rendering chart:</h3>' + 
-                          '<pre>' + error.message + '</pre></div>';
-                      }
-                    } catch (fallbackError) {
-                      debugLog('Error rendering fallback chart', { 
-                        message: fallbackError.message,
-                        stack: fallbackError.stack
-                      });
+                      return data;
                     }
-                  } catch (e) {
-                    debugLog('Error initializing Muze', e.message);
+                  };
+                  
+                  // Execute the user's code
+                  try {
+                    ${transformedCode}
+                  } catch (error) {
+                    console.error('Error executing user code:', error);
+                    
+                    document.getElementById('chart').innerHTML = 
+                      '<div class="error-container">' + 
+                      '<h3>Error rendering chart:</h3>' + 
+                      '<pre>' + error.message + '</pre></div>';
+                    
+                    window.parent.postMessage({ type: 'error', message: error.message }, '*');
                   }
+                } catch (e) {
+                  console.error('Error initializing Muze:', e);
+                  window.parent.postMessage({ type: 'error', message: e.message }, '*');
                 }
-              // };
+              }
             </script>
           </body>
         </html>
@@ -264,29 +152,12 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
           const messageHandler = (event: MessageEvent) => {
             if (event.data && event.data.type === "muze-version") {
               setMuzeVersion(event.data.version);
+            } else if (event.data && event.data.type === "error") {
+              setError(event.data.message);
             }
           };
 
           window.addEventListener("message", messageHandler);
-
-          // Try to access the debug div after the iframe loads
-          setTimeout(() => {
-            try {
-              const debugContent =
-                iframe.contentDocument?.getElementById("debug")?.innerHTML;
-              if (debugContent) {
-                setDebugInfo(debugContent);
-              } else {
-                setDebugInfo("No debug information available");
-              }
-            } catch (error) {
-              console.error("Error accessing iframe content:", error);
-              setDebugInfo(
-                "Error accessing debug information: " +
-                  (error instanceof Error ? error.message : String(error))
-              );
-            }
-          }, 1000); // Give it a second to render
 
           return () => {
             window.removeEventListener("message", messageHandler);
@@ -326,11 +197,6 @@ const Preview: React.FC<PreviewProps> = ({ code }) => {
           className="w-full flex-grow border-0"
           title="Chart Preview"
           sandbox="allow-scripts allow-same-origin"
-        />
-        <div
-          className="bg-gray-100 border-t border-gray-300 p-2 text-xs font-mono overflow-auto"
-          style={{ maxHeight: "30%", minHeight: "100px" }}
-          dangerouslySetInnerHTML={{ __html: debugInfo }}
         />
       </div>
     </div>

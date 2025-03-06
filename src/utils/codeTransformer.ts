@@ -4,7 +4,6 @@
  * @returns Transformed code ready for execution
  */
 export function transformCode(code: string): string {
-  debugger;
   // Replace require statements with window.Muze
   let transformedCode = code.replace(
     /const\s+(?:env|muze)\s*=\s*require\s*\(\s*['"]@viz\/muze['"]\s*\)/g,
